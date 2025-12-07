@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News2Lesson Accelerator</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050505; 
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        /* 1. 環境光暈 */
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 50%, #0f172a 0%, #000000 100%);
+            overflow: hidden;
+        }
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.5;
+            animation: blob 25s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .orb-1 { top: -10%; left: -10%; width: 60vw; height: 60vw; background: #3b82f6; animation-delay: 0s; }
+        .orb-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: #8b5cf6; animation-delay: -5s; }
+        .orb-3 { top: 30%; left: 30%; width: 40vw; height: 40vw; background: #10b981; opacity: 0.2; animation-delay: -10s; }
+
+        /* 2. 液態玻璃面板 (加厚版) */
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.4);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 4px solid rgba(0, 0, 0, 0.4);
+            
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.6), 
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+            
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+        
+        /* 3. 互動式玻璃按鈕 */
+        .glass-button {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 
+                0 10px 20px -5px rgba(0, 0, 0, 0.4),
+                0 0 15px rgba(255, 255, 255, 0.05) inset;
+            z-index: 10;
+        }
+        
+        .glass-button:active {
+            transform: translateY(0px) scale(0.98);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* 步驟指示器 */
+        .step-badge {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700; margin-right: 16px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .step-active .step-badge { 
+            background: linear-gradient(135deg, #007AFF, #0055b3); 
+            color: white; 
+            box-shadow: 0 0 20px rgba(0, 122, 255, 0.6);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .step-inactive .step-badge { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); }
+
+        /* 輸入框 */
+        .glass-input {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4); 
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            outline: none;
+            background: rgba(0, 0, 0, 0.5);
+            border-color: #3b82f6;
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.4),
+                0 0 0 1px #3b82f6;
+        }
+
+        /* 捲軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+        /* Loader */
+        .loader {
+            width: 50px; height: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: inline-block;
+            position: relative;
+            animation: rotation 1.5s linear infinite;
+        }
+        .loader::after {
+            content: '';  
+            position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: #3b82f6;
+            animation: rotation 0.8s linear infinite reverse;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="antialiased selection:bg-blue-500 selection:text-white">
+
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- 頂部導航 -->
+    <nav class="fixed top-6 left-0 right-0 z-50 flex justify-center">
+        <div class="glass-panel rounded-full px-6 py-3 flex items-center gap-6 max-w-2xl w-full mx-4 hover:translate-y-1 transition-transform duration-300">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)] border border-white/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <span class="font-bold text-lg tracking-tight text-white drop-shadow-md">News2Lesson</span>
+            </div>
+            <div class="h-5 w-px bg-white/10"></div>
+            <div class="text-[10px] font-bold text-blue-300/80 tracking-[0.2em] uppercase">AI Accelerator</div>
+            <div class="flex-grow"></div>
+            <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-black/20 border border-white/5">
+                <div class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80] animate-pulse"></div>
+                <span class="text-xs text-white/60 font-medium">Model:Gemini 2.5 Pro</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 pt-32 pb-20 space-y-12 relative z-10">
+
+        <!-- 標題 -->
+        <div class="text-center space-y-4 opacity-0 animate-[fade-in_1s_ease-out_forwards]">
+            <h2 class="text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-2xl">
+                Create <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Lessons</span> <br> at Light Speed
+            </h2>
+            <p class="text-white/50 text-lg font-light max-w-2xl mx-auto leading-relaxed">
+                The ultimate AI-powered companion for modern educators. <br> Search, create, and inspire in minutes.
+            </p>
+        </div>
+
+        <!-- 步驟 1: 搜尋 -->
+        <section id="step1" class="glass-panel rounded-[40px] p-8 md:p-10 step-active transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.7)]">
+            <div class="flex items-center mb-8">
+                <div class="step-badge">1</div>
+                <h2 class="text-2xl font-bold text-white">Search Topic</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 pl-0 md:pl-12">
+                <!-- 日期 -->
+                <div class="md:col-span-1 space-y-3">
+                    <label class="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">Date</label>
+                    <input type="date" id="dateInput" class="glass-input w-full rounded-2xl px-5 py-4 text-sm cursor-pointer hover:bg-white/5">
+                </div>
+                <!-- 關鍵字 -->
+                <div class="md:col-span-3 space-y-3">
+                    <label class="text-xs font-bold text-white/40 uppercase tracking-widest ml-1">Keyword</label>
+                    <div class="flex gap-4">
+                        <div class="relative flex-grow group">
+                            <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                                <span class="text-white/30 text-lg group-focus-within:text-blue-400 transition-colors">🔍</span>
+                            </div>
+                            <input type="text" id="keywordInput" placeholder="Enter topic (e.g. Space, Panda, AI)..." 
+                                class="glass-input w-full rounded-2xl pl-12 pr-6 py-4 text-base placeholder-white/20">
+                        </div>
+                        <button onclick="searchNews()" id="searchBtn" class="bg-[#007AFF] hover:bg-[#0062cc] text-white px-10 py-4 rounded-2xl font-bold transition-all shadow-[0_0_30px_rgba(0,122,255,0.4)] active:scale-95 border border-white/10 hover:border-white/30 tracking-wide hover:-translate-y-1">
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 步驟 2: 新聞選擇 -->
+        <section id="step2" class="glass-panel rounded-[40px] p-8 md:p-10 hidden step-inactive opacity-0 translate-y-8 transition-all duration-700 hover:-translate-y-1">
+            <div class="flex items-center mb-8">
+                <div class="step-badge">2</div>
+                <h2 class="text-2xl font-bold text-white">Select News</h2>
+            </div>
+            <div id="newsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6 pl-0 md:pl-12">
+                <!-- 新聞卡片 -->
+            </div>
+        </section>
+
+        <!-- 步驟 3: 風格選擇 -->
+        <section id="step3" class="glass-panel rounded-[40px] p-8 md:p-10 hidden step-inactive opacity-0 translate-y-8 transition-all duration-700 hover:-translate-y-1">
+            <div class="flex justify-between items-center mb-8">
+                <div class="flex items-center">
+                    <div class="step-badge">3</div>
+                    <h2 class="text-2xl font-bold text-white">Visual Style</h2>
+                </div>
+                <div id="selectedNewsTitle" class="hidden md:block text-xs font-semibold text-white/70 bg-white/5 px-4 py-2 rounded-full border border-white/10 max-w-[300px] truncate shadow-inner">
+                    ...
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 pl-0 md:pl-12 mb-10">
+                <!-- 哆啦A夢 (Special) -->
+                <button onclick="selectStyle(this, 'Classic Doraemon')" class="style-btn group relative glass-button rounded-3xl p-6 text-left border-blue-500/40 bg-blue-500/5 hover:bg-blue-500/10">
+                    <div class="absolute -top-3 -right-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-[10px] px-3 py-1 rounded-full font-bold shadow-[0_0_15px_rgba(59,130,246,0.6)] border border-white/20">POPULAR</div>
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]">🤖</div>
+                    <div class="font-bold text-base text-blue-300 tracking-wide">Doraemon</div>
+                    <div class="text-[11px] text-white/40 mt-1 font-medium leading-tight">Character Integration</div>
+                </button>
+
+                <button onclick="selectStyle(this, '3D Animated Movie')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🎬</div>
+                    <div class="font-bold text-base text-gray-100">3D Animated</div>
+                    <div class="text-[11px] text-white/40 mt-1">Pixar Style</div>
+                </button>
+
+                <button onclick="selectStyle(this, 'Modern Cozy Storybook')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🐻</div>
+                    <div class="font-bold text-base text-gray-100">Cozy Story</div>
+                    <div class="text-[11px] text-white/40 mt-1">Warm Art</div>
+                </button>
+
+                <button onclick="selectStyle(this, 'Modern Organic Vector')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📐</div>
+                    <div class="font-bold text-base text-gray-100">Modern Vector</div>
+                    <div class="text-[11px] text-white/40 mt-1">Educational</div>
+                </button>
+
+                <button onclick="selectStyle(this, 'Soft Watercolor')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🎨</div>
+                    <div class="font-bold text-base text-gray-100">Watercolor</div>
+                    <div class="text-[11px] text-white/40 mt-1">Artistic</div>
+                </button>
+
+                <button onclick="selectStyle(this, 'Vibrant Kids Comic')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">💥</div>
+                    <div class="font-bold text-base text-gray-100">Kids Comic</div>
+                    <div class="text-[11px] text-white/40 mt-1">High Energy</div>
+                </button>
+
+                <button onclick="selectStyle(this, 'Layered Paper Cutout')" class="style-btn glass-button rounded-3xl p-6 text-left group">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">✂️</div>
+                    <div class="font-bold text-base text-gray-100">Paper Art</div>
+                    <div class="text-[11px] text-white/40 mt-1">3D Diorama</div>
+                </button>
+            </div>
+
+            <div class="pl-0 md:pl-12 text-right">
+                <button onclick="generateContent()" id="generateBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white px-12 py-4 rounded-2xl font-bold text-lg shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all transform active:scale-95 flex items-center gap-3 border border-white/20 ml-auto group hover:-translate-y-1">
+                    <span>Generate Lesson</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- 步驟 4: 結果輸出 -->
+        <section id="step4" class="hidden space-y-8 animate-[fade-in_0.8s_ease-out_forwards] pb-12">
+            
+            <div class="flex items-center gap-4 py-4 opacity-30">
+                <div class="h-px bg-white flex-grow"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div class="h-px bg-white flex-grow"></div>
+            </div>
+
+            <!-- 驗證區 (Synopsis) -->
+            <div class="glass-panel rounded-[32px] p-1 border-yellow-500/20 shadow-[0_0_50px_rgba(234,179,8,0.05)] hover:-translate-y-1 transition-transform">
+                <div class="bg-gradient-to-br from-yellow-900/40 to-transparent backdrop-blur-xl rounded-[28px] p-8 border border-yellow-500/10">
+                    <div class="flex items-start gap-6">
+                        <div class="text-4xl p-4 bg-yellow-500/10 rounded-3xl text-yellow-300 border border-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.2)]">📝</div>
+                        <div>
+                            <h3 class="font-bold text-yellow-100 text-xl mb-3 tracking-wide">Story Synopsis</h3>
+                            <p id="synopsisText" class="text-base text-yellow-100/70 leading-relaxed tracking-wide font-light"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 輸出區 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- 區塊 A -->
+                <div class="glass-panel rounded-[40px] overflow-hidden flex flex-col h-[650px] group border-blue-500/20 hover:border-blue-500/40 transition duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)] hover:-translate-y-1">
+                    <div class="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-white/5 backdrop-blur-3xl">
+                        <h3 class="font-bold text-blue-200 text-sm flex items-center gap-3 tracking-wider uppercase">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span> Source Material
+                        </h3>
+                        <!-- 修改後的複製按鈕 -->
+                        <button onclick="copyToClipboard('sourceOutput', this)" class="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/30 active:scale-95 border border-white/10 hover:-translate-y-0.5">COPY</button>
+                    </div>
+                    <textarea id="sourceOutput" class="flex-1 p-8 w-full resize-none font-mono text-xs bg-transparent focus:outline-none text-blue-100/70 leading-relaxed selection:bg-blue-500/30 custom-scrollbar" readonly></textarea>
+                </div>
+
+                <!-- 區塊 B -->
+                <div class="glass-panel rounded-[40px] overflow-hidden flex flex-col h-[650px] group border-purple-500/20 hover:border-purple-500/40 transition duration-500 hover:shadow-[0_0_40px_rgba(168,85,247,0.1)] hover:-translate-y-1">
+                    <div class="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-white/5 backdrop-blur-3xl">
+                        <h3 class="font-bold text-purple-200 text-sm flex items-center gap-3 tracking-wider uppercase">
+                            <span class="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></span> Prompt
+                        </h3>
+                        <!-- 修改後的複製按鈕 -->
+                        <button onclick="copyToClipboard('promptOutput', this)" class="text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-purple-600/30 active:scale-95 border border-white/10 hover:-translate-y-0.5">COPY</button>
+                    </div>
+                    <textarea id="promptOutput" class="flex-1 p-8 w-full resize-none font-mono text-xs bg-transparent focus:outline-none text-purple-100/70 leading-relaxed selection:bg-purple-500/30 custom-scrollbar" readonly></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 載入動畫 (極致磨砂) -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-[#050505]/80 backdrop-blur-3xl z-50 hidden flex flex-col items-center justify-center transition-all duration-700">
+        <div class="relative mb-10">
+            <div class="loader"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-[10px] font-bold text-blue-400 animate-pulse tracking-widest">AI</span>
+            </div>
+            <!-- 光暈 -->
+            <div class="absolute -inset-4 bg-blue-500/20 blur-xl rounded-full z-[-1] animate-pulse"></div>
+        </div>
+        <h3 id="loadingTitle" class="text-4xl font-bold text-white mb-4 tracking-tight drop-shadow-xl">Thinking</h3>
+        <p id="loadingSubtitle" class="text-base text-white/40 font-light tracking-wider uppercase">Processing content</p>
+    </div>
+
+    <!-- 內嵌 CSS Keyframes for Fade In -->
+    <style>
+        @keyframes fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+    <!-- JS Logic -->
+    <script>
+        document.getElementById('dateInput').valueAsDate = new Date();
+        let selectedNewsData = null;
+        let selectedStyle = 'Classic Doraemon';
+        const API_BASE = '/api';
+
+        async function searchNews() {
+            const query = document.getElementById('keywordInput').value;
+            const date = document.getElementById('dateInput').value;
+
+            if(!query) {
+                const input = document.getElementById('keywordInput');
+                input.parentElement.classList.add('ring-2', 'ring-red-500/50');
+                setTimeout(() => input.parentElement.classList.remove('ring-2', 'ring-red-500/50'), 500);
+                return;
+            }
+
+            setLoading(true, 'Scanning News', 'Searching global database...');
+            
+            try {
+                const res = await fetch(`${API_BASE}/search-news`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, date })
+                });
+                
+                const newsList = await res.json();
+                
+                if (newsList.length === 0) {
+                    alert('No news found. Please try "Space" or "Nature".');
+                } else {
+                    renderNewsCards(newsList);
+                    activateStep('step2');
+                    document.getElementById('step3').classList.add('hidden', 'opacity-0');
+                    document.getElementById('step4').classList.add('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Connection Error. Is server.js running?');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function renderNewsCards(newsList) {
+            const container = document.getElementById('newsGrid');
+            container.innerHTML = '';
+
+            newsList.forEach((news) => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel rounded-3xl p-8 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(59,130,246,0.15)] group relative overflow-hidden bg-white/5 hover:bg-white/10 border-white/5 hover:border-blue-500/30';
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_20px_#3b82f6]"></div>
+                    <div class="text-[10px] uppercase font-bold text-white/30 mb-4 tracking-[0.2em] flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500/50 box-shadow-[0_0_10px_blue]"></span>
+                        ${news.source}
+                    </div>
+                    <h3 class="font-bold text-white mb-4 text-xl leading-snug group-hover:text-blue-300 transition-colors">${news.title_zh}</h3>
+                    <p class="text-sm text-white/50 line-clamp-3 leading-relaxed group-hover:text-white/70 transition-colors font-light">${news.summary_zh}</p>
+                `;
+                card.onclick = () => selectNews(news, card);
+                container.appendChild(card);
+            });
+        }
+
+        function selectNews(news, cardElement) {
+            selectedNewsData = news;
+            
+            document.querySelectorAll('#newsGrid > div').forEach(el => {
+                el.classList.remove('ring-1', 'ring-blue-500', 'bg-blue-500/10', 'shadow-[0_0_30px_rgba(59,130,246,0.2)]');
+                el.classList.add('opacity-40', 'scale-95');
+                el.style.transform = 'scale(0.95)';
+            });
+            cardElement.classList.remove('opacity-40', 'scale-95');
+            cardElement.classList.add('ring-1', 'ring-blue-500', 'bg-blue-500/10', 'shadow-[0_0_30px_rgba(59,130,246,0.2)]');
+            cardElement.style.transform = 'scale(1)';
+
+            document.getElementById('selectedNewsTitle').innerText = news.title_zh;
+            activateStep('step3');
+        }
+
+        function selectStyle(btn, styleName) {
+            selectedStyle = styleName;
+            
+            document.querySelectorAll('.style-btn').forEach(b => {
+                b.classList.remove('border-blue-500', 'bg-blue-500/20', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]');
+                b.classList.add('border-white/5', 'bg-white/5');
+            });
+            
+            btn.classList.remove('border-white/5', 'bg-white/5');
+            btn.classList.add('border-blue-500', 'bg-blue-500/20', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]');
+        }
+
+        async function generateContent() {
+            if(!selectedNewsData) return;
+
+            setLoading(true, 'Generating', 'Writing story, extracting vocabulary, building slides...');
+
+            try {
+                const res = await fetch(`${API_BASE}/generate-content`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        newsContent: selectedNewsData,
+                        style: selectedStyle
+                    })
+                });
+
+                const data = await res.json();
+                
+                document.getElementById('synopsisText').innerText = data.synopsis_zh;
+                document.getElementById('sourceOutput').value = data.source_material;
+                document.getElementById('promptOutput').value = data.notebooklm_instruction;
+
+                const resultSection = document.getElementById('step4');
+                resultSection.classList.remove('hidden');
+                setTimeout(() => {
+                    resultSection.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+
+            } catch (err) {
+                console.error(err);
+                alert('Generate Failed.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function activateStep(stepId) {
+            const step = document.getElementById(stepId);
+            step.classList.remove('hidden');
+            setTimeout(() => {
+                step.classList.remove('opacity-0', 'translate-y-8');
+                step.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            
+            step.classList.remove('step-inactive');
+            step.classList.add('step-active');
+        }
+
+        function setLoading(show, title, subtitle) {
+            const overlay = document.getElementById('loadingOverlay');
+            if(show) {
+                document.getElementById('loadingTitle').innerText = title;
+                document.getElementById('loadingSubtitle').innerText = subtitle || '';
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 500);
+            }
+        }
+
+        // [修改] 支援傳入按鈕元素本身，以進行樣式變更
+        function copyToClipboard(elementId, btnElement) {
+            const el = document.getElementById(elementId);
+            el.select();
+            navigator.clipboard.writeText(el.value).then(() => {
+                // 儲存原始狀態
+                const originalText = btnElement.innerText;
+                const isSource = elementId === 'sourceOutput';
+                const originalBg = isSource ? 'bg-blue-600' : 'bg-purple-600';
+                const originalHover = isSource ? 'hover:bg-blue-500' : 'hover:bg-purple-500';
+                const originalBorder = 'border-white/10'; // 原始邊框
+
+                // 1. 閃光狀態 (White Flash)
+                btnElement.innerText = 'COPIED!';
+                
+                // 移除原始顏色 class
+                btnElement.classList.remove(originalBg, originalHover, 'text-white', originalBorder);
+                
+                // 加入閃光樣式 (白底、深藍字、亮光暈、放大)
+                btnElement.classList.add('bg-white', 'text-blue-900', 'shadow-[0_0_25px_rgba(255,255,255,0.9)]', 'scale-105', 'font-extrabold', 'border-white');
+
+                // 2. 0.5秒後復原
+                setTimeout(() => {
+                    btnElement.innerText = originalText;
+                    
+                    // 移除閃光樣式
+                    btnElement.classList.remove('bg-white', 'text-blue-900', 'shadow-[0_0_25px_rgba(255,255,255,0.9)]', 'scale-105', 'font-extrabold', 'border-white');
+                    
+                    // 加回原始顏色
+                    btnElement.classList.add(originalBg, originalHover, 'text-white', originalBorder);
+                }, 500);
+            });
+        }
+    </script>
+</body>
+</html>
