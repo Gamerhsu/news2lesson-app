@@ -17,7 +17,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 首頁路由: 任何沒定義的 API 路徑，都回傳 index.html (讓前端接手)
-app.get('*', (req, res) => {
+// [修正] 使用正規表達式 /.*/ 來匹配所有路徑，解決 PathError 問題
+app.get(/.*/, (req, res) => {
     // 如果請求的是 API 相關路徑但沒對應到，回傳 404 JSON
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'API Not Found' });
